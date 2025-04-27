@@ -1,41 +1,27 @@
-import '../styles/globals.css';
-import '@rainbow-me/rainbowkit/styles.css';
-import type { AppProps } from 'next/app';
+import "../styles/globals.css";
+import "@rainbow-me/rainbowkit/styles.css";
+import type { AppProps } from "next/app";
+import { Toaster } from "react-hot-toast";
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { WagmiProvider } from 'wagmi';
-import {
-  mainnet,
-  zkSync,
-  sepolia,
-} from 'wagmi/chains';
-import { getDefaultConfig, RainbowKitProvider } from '@rainbow-me/rainbowkit';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { WagmiProvider } from "wagmi";
+import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
 
-const config = getDefaultConfig({
-  appName: 'RainbowKit App',
-  projectId: 'YOUR_PROJECT_ID',
-  chains: [
-    mainnet,
-    sepolia,
-    zkSync,
-    
-    ...(process.env.NEXT_PUBLIC_ENABLE_TESTNETS === 'true' ? [sepolia] : []),
-  ],
-  ssr: true,
-});
+import { wagmiConfig, chains } from "../lib/wagmiConfig"; // Import chains juga
+import Navbar from "../components/Navbar";
 
-const client = new QueryClient();
+const queryClient = new QueryClient();
 
-function MyApp({ Component, pageProps }: AppProps) {
+export default function MyApp({ Component, pageProps }: AppProps) {
   return (
-    <WagmiProvider config={config}>
-      <QueryClientProvider client={client}>
+    <WagmiProvider config={wagmiConfig}>
+      <QueryClientProvider client={queryClient}>
         <RainbowKitProvider>
+          <Navbar />
           <Component {...pageProps} />
+          <Toaster position="top-center" reverseOrder={false} />
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );
 }
-
-export default MyApp;

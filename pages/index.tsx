@@ -1,312 +1,151 @@
-import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { NextPage } from "next";
-import Head from "next/head";
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
-import { useAccount, useConnect } from "wagmi";
-import Image from "next/image";
-import React from "react";
+"use client";
 
-interface Role {
-  id: string;
-  granted: boolean;
-}
+import { useRouter } from "next/router"; // Tambahkan useRouter untuk navigasi
+import MemeUploadModal from "../components/MemeUploadModal";
+import { useIsClient } from "../hooks/useIsClient";
+import { useAccount, useContractRead } from "wagmi";
+import { useState, useEffect } from "react";
+import { abi } from "../constant/contract-abi";
+import { CONTRACT_ADDRESS } from "../constant/contract-address";
+import ContributeModal from "../components/ContributeModal";
+import StepCard from "../components/StepCard";
+import UploadButton from "../components/UploadButton";
+import { Lock } from "lucide-react";
+import { motion } from "framer-motion";
 
-// Define the Home component
-const Home: NextPage = () => {
-  const STUDENTSBT = "STUDENT_SBT";
-  const [isStudentSBT, setIsStudentSBT] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [address, setAddress] = useState<string>("");
-  const [verifyPressed, setVerifyPressed] = useState(false);
-
-  // const truncateAddress = (address: string) => {
-  //   return `${address.substring(0.2)}...${address.substring(
-  //     address.length -4,
-  //     address.length
-  //   )}`;
-  // };
-
-  const router = useRouter();
+export default function Home() {
+  const router = useRouter(); // Gunakan router untuk navigasi
+  const isClient = useIsClient(); // 🛡️ tambahan buat cek client
   const { isConnected } = useAccount();
 
+  const [selectedMemeId, setSelectedMemeId] = useState<number | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const { data: totalSupplyData, refetch } = useContractRead({
+    address: CONTRACT_ADDRESS,
+    abi,
+    functionName: "totalSupply",
+  });
+
   useEffect(() => {
-    const requestAccount = async () => {
+    if (!totalSupplyData) return;
+
+    const fetchMemes = async () => {
+      setIsLoading(true);
       try {
-        const accounts = await window.ethereum.request({
-          method: "eth_requestAccounts",
-        });
-        setAddress(accounts[0]);
+        // Pastikan untuk menambahkan logic untuk mengambil meme jika diperlukan
+        // const total = Number(totalSupplyData);
+        // const results = await Promise.all(
+        //   Array.from({ length: total }, (_, i) => fetchMeme(i))
+        // );
+        // setMemes(results);
       } catch (error) {
-        console.error("Error requesting account:", error);
+        console.error("Error fetching memes:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    requestAccount();
-  }, []);
+    fetchMemes();
+  }, [totalSupplyData]);
 
-  const rules = [
-    {
-      roleId: STUDENTSBT,
-      minToken: "1",
-      chainId: 11155111,
-      contractAddress: "0x64d37e898d957f4b7ce19d4ce7a16f7d2c13e920",
-      type: "ERC1155",
-    },
-  ];
+  const openModal = (memeId: number) => {
+    setSelectedMemeId(memeId);
+    setIsModalOpen(true);
+  };
 
-  const getRulesStatus = async () => {
-    setLoading(true);
-    setVerifyPressed(true);
-    try {
-      const isConnected = window.ethereum.isConnected();
-      if (!isConnected) {
-        console.error("Tidak terhubung ke Ethereum");
-        // Tampilkan pesan kesalahan kepada pengguna
-        return;
-      }
+  const closeModal = () => {
+    setSelectedMemeId(null);
+    setIsModalOpen(false);
+  };
 
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      };
+  // Ganti openUploadModal untuk menggunakan router.push untuk navigasi ke halaman upload
+  const openUploadModal = () => {
+    router.push("/upload"); // Pindahkan pengguna ke halaman /upload.tsx
+  };
 
-      if (process.env.NEXT_PUBLIC_COLLAB__API_KEY) {
-        headers["X-API-KEY"] = process.env.NEXT_PUBLIC_COLLAB__API_KEY;
-      } else {
-        headers["X-API-KEY"] = "TjUgVmrF06717v9l.Zm2o1BHXLteVMm90vsGEt";
-      }
+  const closeUploadModal = () => {
+    setIsUploadModalOpen(false);
+  };
 
-      const response = await fetch(
-        "https://api.collab.land/access-control/check-roles",
-        {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            account: address,
-            rules,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch roles status");
-      }
-
-      const result = await response.json();
-      console.log(result);
-      setLoading(false);
-
-      for (const role of result.roles) {
-        if (role.granted) {
-          switch (role.id) {
-            case STUDENTSBT:
-              setIsStudentSBT(true);
-              break;
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      // Tampilkan pesan kesalahan kepada pengguna
-    }
+  const handleUploaded = async () => {
+    await refetch(); // 🔥 Refresh totalSupply dan refresh memes
   };
 
   return (
-    <div>
-      {/* Head section for page metadata */}
-      <Head>
-        <title>TrustId</title>
-      </Head>
-
-      <header>
-        <div className="navbar bg-base-100">
-          <div className="navbar-start">
-            <div className="dropdown">
-              <div
-                tabIndex={0}
-                role="button"
-                className="btn btn-ghost btn-circle"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M4 6h16M4 12h16M4 18h7"
-                  />
-                </svg>
-              </div>
-              <ul
-                tabIndex={0}
-                className="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52"
-              >
-                <li>
-                  <a></a>
-                </li>
-                <li>
-                  <Link
-                    href="https://mint-page-ijazah.vercel.app/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    passHref
-                  >
-                    mint-page
-                  </Link>
-                </li>
-                <li>
-                  <a>About</a>
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div className="navbar-center">
-            <a className="btn btn-ghost text-xl">TrustId</a>
-          </div>
-          <div className="navbar-end m-4">
-            <ConnectButton />
-          </div>
-        </div>
-      </header>
-
-      <main>
-        <div
-          className="section"
-          style={{
-            marginTop: "-150px",
-          }}
+    <main className="min-h-screen bg-gradient-to-br from-yellow-100 via-pink-100 to-purple-100 p-6">
+      {/* Hero Section */}
+      <section className="text-center py-16">
+        <motion.h1
+          className="text-5xl md:text-7xl font-extrabold text-purple-800 mb-6 flex justify-center items-center gap-4"
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7 }}
         >
-          <div className="hero min-h-screen bg-base-200">
-            <div className="hero-content text-center">
-              <div className="max-w-md">
-                <h1 className="text-5xl font-bold">Revitalize Your Identity</h1>
-                <p className="py-6">
-                  PERANCANGAN SISTEM VERIFIKASI IDENTITAS DIGITAL DENGAN
-                  PEMANFAATAN SOULBOUND TOKEN (SBT) BERBASIS BLOCKCHAIN ETHEREUM
-                  DALAM KONTEKS WEB 3.0 ERAs
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+          <Lock className="w-14 h-14 text-purple-700" />
+          MemeVault
+        </motion.h1>
 
-        {isConnected && (
-          <div
-            className="section"
-            style={{
-              marginTop: "-227px",
-              display: "flex",
-              justifyContent: "center",
-            }}
+        <motion.p
+          className="text-lg md:text-2xl text-purple-600 mt-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5, duration: 0.8 }}
+        >
+          Lock your meme. Set a crypto goal. Reveal the laughter with the
+          community!
+        </motion.p>
+      </section>
+
+      {/* Main Section */}
+      <section className="flex flex-col items-center justify-center px-4 py-8">
+        {isConnected ? (
+          <>
+            {/* Upload Button */}
+            <UploadButton onClick={openUploadModal} />
+
+            {/* Steps */}
+            <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+              <StepCard number="1" title="Upload your meme" emoji="📸" />
+              <StepCard number="2" title="Set your crypto goal" emoji="🎯" />
+              <StepCard
+                number="3"
+                title="Invite friends to contribute"
+                emoji="🤝"
+              />
+              <StepCard number="4" title="Unlock the laughter!" emoji="😂" />
+            </div>
+          </>
+        ) : (
+          <motion.div
+            className="mt-8 text-purple-600 text-lg"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1 }}
           >
-            <div className="row">
-              <div className="col">
-                <div className="card w-96 bg-base-100 shadow-xl">
-                  <figure>
-                    <Image
-                      layout="responsive"
-                      src="/nft.png"
-                      width="500"
-                      height="500"
-                      alt="RainbowKit Demo NFT"
-                    />
-                  </figure>
-                  <div className="card-body">
-                    <h2 className="card-title">
-                      Silahkan Cek Keaslian Ijazah Anda!
-                    </h2>
-                    {loading && <p>Loading ...</p>}
-                    {verifyPressed && !loading && isStudentSBT && (
-                      <p>
-                        Anda Terverifikasi Sebagai Lulusan Universitas Sriwijaya
-                      </p>
-                    )}
-                    {verifyPressed && !loading && !isStudentSBT && (
-                      <p>Ijazah anda tidak valid</p>
-                    )}
-                    <div className="card-actions justify-end">
-                      {!verifyPressed && (
-                        <button
-                          style={{ marginTop: 24 }}
-                          className="btn btn-active"
-                          onClick={getRulesStatus}
-                        >
-                          Verify
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+            Please connect your wallet to continue.
+          </motion.div>
         )}
-      </main>
+      </section>
 
-      <footer
-        className="footer footer-center p-10 text-base-content rounded"
-        style={{
-          marginTop: "200px",
-          display: "flex",
-          justifyContent: "center",
-        }}
-      >
-        <nav className="grid grid-flow-col gap-4">
-          <a className="link link-hover">About us</a>
-          <a className="link link-hover">Contact</a>
-          <a className="link link-hover">Jobs</a>
-          <a className="link link-hover">Press kit</a>
-        </nav>
-        <nav>
-          <div className="grid grid-flow-col gap-4">
-            <a>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                className="fill-current"
-              >
-                <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"></path>
-              </svg>
-            </a>
-            <a>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                className="fill-current"
-              >
-                <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"></path>
-              </svg>
-            </a>
-            <a>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                className="fill-current"
-              >
-                <path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z"></path>
-              </svg>
-            </a>
-          </div>
-        </nav>
-        <aside>
-          <p>Copyright © 2024 - All right reserved by ACME Industries Ltd</p>
-        </aside>
-      </footer>
-    </div>
+      {/* Modals */}
+      {selectedMemeId !== null && (
+        <ContributeModal
+          isOpen={isModalOpen}
+          onClose={closeModal}
+          memeId={selectedMemeId}
+        />
+      )}
+
+      {isUploadModalOpen && (
+        <MemeUploadModal
+          isOpen={isUploadModalOpen}
+          onClose={closeUploadModal}
+          onUploaded={handleUploaded}
+        />
+      )}
+    </main>
   );
-};
-
-export default Home;
+}
